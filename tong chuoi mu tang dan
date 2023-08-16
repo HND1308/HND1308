@@ -1,0 +1,23 @@
+#include <stdio.h>
+
+int main(){
+	double s=0;
+	int p=1;
+	int i, n;
+	double x;
+	printf("nhap n\n");
+	while(n<1){
+		scanf("%d", &n);
+		if(n<1){
+			printf("ban nhap khong dung n vui long nhap n nho hon 1\n");
+		}
+	}
+	printf("nhap x\n");
+	scanf("%lf", &x);
+	for(i=1; i<=n; i++){
+		p=p*x;
+		s=s+p;
+	}
+	printf("%lf", s);
+	return 0;
+}
