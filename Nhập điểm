@@ -1,0 +1,14 @@
+#include <stdio.h>
+int main()
+{
+	float diem;
+	printf(" Nhap diem\n ");
+	scanf("%f", &diem);
+	while (diem>=0 || diem<=10){
+		printf("\nBAn nhap khong dung\n");
+		printf ("Ban hay nhap lai (0<=diem<=10):");
+		scanf("%f", &diem);
+	}
+	printf("\nDiem ban vua nhap la :%.2f\n", diem);
+	return 0;
+}
