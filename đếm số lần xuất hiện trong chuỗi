@@ -1,0 +1,46 @@
+#include <stdio.h>
+
+void nhap(int *arr, int *n, int *x){
+	*n = 0;
+	while((*n) <= 0){
+		printf("Nhap n < 0: ");
+		scanf("%d", n);
+	}
+	int i;
+	printf("\nNhap mang : ");
+	for(i = 0; i < (*n); i++){
+		printf("\narr[%d] = ", i);
+		scanf("%d", &arr[i]);
+	}
+	printf("\nNhap x = ");
+	scanf("%d", x);
+}
+
+int dem(int *arr, int n, int x, int count){
+	count = 0;
+	int i;
+	for(i = 0; i < n; i++){
+		if(arr[i] == x){
+			count ++;
+		}
+	}
+	return count;
+}
+
+void ketQua(int *arr, int n, int x, int count){
+	dem(arr, n, x, count);
+	if(dem == 0){
+		printf("x khong xuat hien trong chuoi");
+	}
+	else{
+		printf("x xuat hien trong chuoi %d lan", dem(arr, n, x, count));
+	}
+}
+int main(){
+	int n, x, count;
+	int arr[100];
+	nhap(arr, &n, &x);
+	ketQua(arr, n, x, count);
+	
+	return 0;
+}
