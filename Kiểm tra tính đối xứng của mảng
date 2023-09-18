@@ -1,0 +1,47 @@
+#include <stdio.h>
+
+void nhap(int *arr, int *n){
+	while(*n <= 0){
+		printf("\nNhap n > 0: ");
+		scanf("%d", n);
+	}
+	int i;
+	for(i = 0; i < *n; i++){
+		printf("\narr[%d]: ", i);
+		scanf("%d", &arr[i]);
+	}
+}
+
+void kiemTra(int *arr, int n, int *tf){
+	int i;
+	*tf=1;
+	for(i = 0; i < (n/2)+1; i++){
+		if(arr[i] != arr[n-i-1]){
+			*tf = 0;
+		}
+	}
+}
+
+void ketQua(int *arr, int n, int tf){
+	int i = 0;
+	printf("\n");
+	for(i = 0; i < n; i++){
+		printf("%d ", arr[i]);
+	}
+	if(tf == 1){
+		printf("la mang doi xung");
+	}
+	else{
+		printf("la mang khong doi xung");
+	}
+}
+
+int main(){
+	int n, tf;
+	int arr[100];
+	nhap(arr, &n);
+	kiemTra(arr, n, &tf);
+	ketQua(arr, n, tf);
+	
+	return 0;
+}
