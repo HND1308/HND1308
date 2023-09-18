@@ -1,0 +1,54 @@
+#include <stdio.h>
+
+void nhap(int *arr, int *n, int *a, int *b){
+	(*n) = 0;
+	(*a) = (*b) = 0;
+	while(*n <= 0){
+		printf("\nNhap n > 0: ");
+		scanf("%d", n);
+	}
+	int i;
+	for(i = 0; i < *n; i++){
+		printf("\narr[%d]: ", i);
+		scanf("%d", &arr[i]);
+	}
+	while((*a) >= (*b)){
+		printf("\nNhap a < b");
+		printf("\nNhap a: ");
+		scanf("%d", a);
+		printf("\nNhap b: ");
+		scanf("%d", b);
+	}
+}
+
+int tongChuoi(int *arr, int n, int a, int b){
+	int i;
+	int sum = 0;
+	for(i = 0; i < n; i++){
+		if(arr[i] >= a && arr[i] <= b){
+			sum = sum + arr[i];
+		}
+	}
+	
+	return sum;
+}
+
+void ketQua(int sum, int a, int b){
+	
+	if(sum == 0){
+		printf("\nDay ko co gia tri nam trong doan [%d, %d]", a, b);
+	}
+	else{
+		printf("\nTong gia tri cua cac phan tu chuoi nam trong doan [a, b] la %d", sum);
+	}
+}
+
+int main(){
+	int n, a, b;
+	int arr[100];
+	nhap(arr, &n, &a, &b);
+	int sum = tongChuoi(arr, n, a, b);
+	ketQua(sum, a, b);
+	
+	return 0;
+}
