@@ -1,0 +1,70 @@
+#include <stdio.h>
+
+void nhap (int *arr, int *n){
+	*n = 0;
+	while(*n <= 0){
+		printf("\nNhap n > 0: ");
+		scanf("%d", n);
+	}
+	int i;
+	for(i = 0; i < *n; i++){
+		printf("\narr[%d]: ", i);
+		scanf("%d", &arr[i]);
+	}
+}
+
+void loc(int *arr, int *brr, int n, int *count){
+	int i, j;
+	*count = 0;
+	for(i = 0; i < n; i++){
+		int k = 0;
+		for(j = 0; j <= *count; j++){
+			if(arr[i] == brr[j]){
+				k = 1;
+				break;
+			}
+		}
+		if(!k){
+			brr[*count] = arr[i];
+			(*count)++;
+		}
+	}
+}
+
+void sapXep(int *brr, int count){
+	int i, j, tmp;
+	for(i = 0; i < count; i++){
+		for(j= i+1; j <= count; j++ ){
+			if(brr[i] > brr[j]){
+				tmp = brr[i];
+				brr[i] = brr[j];
+				brr[j] = tmp;
+			}
+		}
+	}
+}
+
+void tim(int *arr, int *brr, int n, int count){
+	int i, j, ext = 0;
+	for(i = 0; i <= count; i++){
+		ext = 0;
+		for(j = 0; j < n; j++){
+			if(brr[i] == arr[j]){
+				ext++;
+			}
+		}
+		printf("\n%d : %d lan", brr[i], ext);
+	}
+}
+
+int main(){
+	int n, count;
+	int arr[100];
+	int brr[100];
+	nhap(arr, &n);
+	loc(arr, brr, n, &count);
+	sapXep(brr, count);
+	tim(arr, brr, n, count);
+	
+	return 0;
+}
