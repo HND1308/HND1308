@@ -1,0 +1,272 @@
+#include "I2Cdev.h"
+#include <servo.h>
+#include <spi.h>
+#include "RF24.h"
+#include "MPU6050_6Axis_MotionApps20.h"
+
+MPU6050 mpu;
+float x_rotation, y_rotation, z_rotation;
+Servo motor1;
+Servo motor2;
+Servo motor3;
+Servo motor4;
+bool first_loop = true;
+RF24 radio(9,10);
+uint8_t data[6];
+const uint64_t pipe = 0xE8E8F0F0E1LL;
+long last_received;
+int controll_number = 159;
+float x_kp = 5, x_ki = 0.02, x_kd = 1100;
+int max_pid = 300;
+float x_p_out, x_i_out, x_d_out, x_output;
+float x_now, x_lasttime = 0, x_timechange;
+float x_input, x_lastinput = 0, x_setpoint = 0;
+float x_error, x_errorsum = 0, x_d_error, x_lasterror;
+float y_kp = 5, y_ki = 0.02, y_kd = 1100;
+float y_p_out, y_i_out, y_d_out, y_output;
+float y_now, y_lasttime = 0, y_timechange;
+float y_input, y_lastinput = 0, y_setpoint = 0;
+float y_error, y_errorsum = 0, y_d_error, y_lasterror;
+float z_kp = 2, z_ki = 0, z_kd = 0;
+float z_p_out, z_i_out, z_d_out, z_output;
+float z_now, z_lasttime = 0, z_timechange;
+float z_input, z_lastinput = 0, z_setpoint = 0;
+float z_error, z_errorsum = 0, z_d_error, z_lasterror;
+float x_level_error = 0;
+float y_level_error = 0;
+#define INTERRUPT_PIN 2
+int motor1_power;
+int motor2_power;
+int motor3_power;
+int motor4_power;
+float allmotors_power = 600;
+bool dmpReady = false;
+uint8_t mpuIntStatus;
+uint8_t devStatus;
+uint16_t packetSize;
+uint16_t fifoCount;
+uint8_t fifoBuffer[64];
+Quaternion q;
+VectorFloat gravity;
+float rotation[3];
+int safe_lock = 1;
+volatile bool mpuInterrupt = false;
+
+void dmpDataReady() {
+    mpuInterrupt = true;
+}
+
+void setup() {
+    Wire.begin();
+    Wire.setClock(400000);
+    printf_begin();
+    Serial.begin(115200);
+    Serial.println("Initializing I2C devices...");
+    mpu.initialize();
+    pinMode(INTERRUPT_PIN, INPUT);
+    Serial.println("Testing device connections...");
+    Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+    radio.begin();
+    delay(1000);
+    radio.setDataRate(RF24_250KBPS);
+    radio.setPALevel(RF24_PA_MAX);
+    radio.openReadingPipe(1,pipe);
+    radio.startListening();
+    Serial.println("Initializing DMP...");
+    devStatus = mpu.dmpInitialize();
+    if (devStatus == 0) {
+        Serial.println("Enabling DMP...");
+        mpu.setDMPEnabled(true);
+        attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
+        mpuIntStatus = mpu.getIntStatus();
+        dmpReady = true;
+        packetSize = mpu.dmpGetFIFOPacketSize();
+    } else {
+        Serial.print("DMP Initialization failed (code ");
+        Serial.print(devStatus);
+        Serial.println(")");
+    }
+    motor1.attach(5);
+    motor2.attach(8);
+    motor3.attach(7);
+    motor4.attach(4);
+    pinMode(A0, INPUT);
+    pinMode(A1, INPUT);
+    digitalWrite(A0, LOW);
+    motor1.write(0);
+    motor2.write(0);
+    motor3.write(0);
+    motor4.write(0);
+    radio.printDetails();
+}
+
+void loop() {
+    if (radio.available()) {
+        bool done = false;
+        while (!done){
+            done = radio.read(data, sizeof(data));
+            if((millis()-last_received) < 3000){
+                if(data[0] == controll_number){
+                    Serial.print("DATA1: ");
+                    Serial.println(data[1]);
+                    allmotors_power = map(data[1], 0, 255, 800, 1500);
+                    if(allmotors_power < 0){
+                        allmotors_power = 0;
+                    }
+                    x_setpoint = data[3] - 20;
+                    y_setpoint = data[2] - 20;
+                    Serial.print("PID OUT X: ");
+                    Serial.print(x_rotation);
+                    Serial.print(" PID OUT Y: ");
+                    Serial.print(y_rotation);
+                    Serial.print("Z NOW: ");
+                    Serial.println(z_rotation);
+                    Serial.print(" TIME: ");
+                    Serial.println(millis());
+                    Serial.print("MOTORS POWER: ");
+                    Serial.println(allmotors_power);
+                }
+            }
+            if(done == true){
+                last_received = millis();
+            }
+        }
+    }
+    if((millis()-last_received) > 3000 && allmotors_power > 0){
+        safe_lock = 0;
+    }
+    while (!mpuInterrupt && fifoCount < packetSize) {
+    }
+    mpuInterrupt = false;
+    mpuIntStatus = mpu.getIntStatus();
+    fifoCount = mpu.getFIFOCount();
+    if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+    } else if (mpuIntStatus & 0x02) {
+        while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+        mpu.getFIFOBytes(fifoBuffer, packetSize);
+        fifoCount -= packetSize;
+        if(safe_lock == 1){
+            mpu.dmpGetQuaternion(&q, fifoBuffer);
+            mpu.dmpGetGravity(&gravity, &q);
+            mpu.dmpGetYawPitchRoll(rotation, &q, &gravity);
+            x_rotation = rotation[1] * 180/M_PI - x_level_error;
+            y_rotation = rotation[2] * 180/M_PI - y_level_error;
+            z_rotation = rotation[0] * 180/M_PI;
+            if(first_loop == true){
+                z_setpoint = z_rotation;
+                first_loop = false;
+            }
+            motor1_power = allmotors_power;
+            motor2_power = allmotors_power;
+            motor3_power = allmotors_power;
+            motor4_power = allmotors_power;
+            if(allmotors_power > 1500){
+                allmotors_power = 1500;
+            }
+            x_output = calculatePID(0, x_rotation);
+            y_output = calculatePID(1, y_rotation);
+            z_output = calculatePID(2, z_rotation);
+            motor1_power += x_output/2;
+            motor1_power += z_output;
+            motor4_power -= x_output/2;
+            motor4_power += z_output;
+            motor2_power -= y_output/2;
+            motor2_power -= z_output;
+            motor3_power += y_output/2;
+            motor3_power -= z_output;
+            motor1.writeMicroseconds(motor1_power);
+            motor4.writeMicroseconds(motor4_power); 
+            motor2.writeMicroseconds(motor2_power);
+            motor3.writeMicroseconds(motor3_power); 
+            mpu.resetFIFO();
+        } else {
+            motor1.write(0);
+            motor2.write(0);
+            motor3.write(0);
+            motor4.write(0);
+        }
+    }
+}
+
+float calculatePID(int _axis, float _angel){
+    // X AXIS
+    if(_axis == 0){
+        x_now = millis();
+        x_timechange = x_now - x_lasttime;
+        x_error = x_setpoint - _angel;
+        x_p_out = (x_kp * x_error);
+        x_errorsum = (x_errorsum + x_error);
+        if(x_errorsum > 1023){
+            x_errorsum = 1023;
+        }
+        if(x_errorsum < -1023){
+            x_errorsum = -1023;
+        }
+        x_i_out = x_ki * x_errorsum;
+        x_d_error = (x_error - x_lasterror) / x_timechange;
+        x_d_out = x_kd * x_d_error;
+        x_lasterror = x_error;
+        x_output = x_p_out + x_i_out + x_d_out;
+        if(x_output > max_pid){
+            x_output = max_pid;
+        } else if(x_output < -(max_pid)){
+            x_output = -(max_pid);
+        }
+        x_lasttime = millis();
+        return x_output;
+    }
+    // Y AXIS
+    else if(_axis == 1){
+        y_now = millis();
+        y_timechange = y_now - y_lasttime;
+        y_error = y_setpoint - _angel;
+        y_p_out = (y_kp * y_error);
+        y_errorsum = (y_errorsum + y_error) * y_timechange;
+        if(y_errorsum > 1023){
+            y_errorsum = 1023;
+        }
+        if(y_errorsum < -1023){
+            y_errorsum = -1023;
+        }
+        y_i_out = y_ki * y_errorsum;
+        y_d_error = (y_error - y_lasterror) / y_timechange;
+        y_d_out = y_kd * y_d_error;
+        y_lasterror = y_error;
+        y_output = y_p_out + y_i_out + y_d_out;
+        if(y_output > max_pid){
+            y_output = max_pid;
+        } else if(y_output < -(max_pid)){
+            y_output = -(max_pid);
+        }
+        y_lasttime = millis();
+        return y_output;
+    }
+    // Z AXIS
+    else if(_axis == 2){
+        z_now = millis();
+        z_timechange = z_now - z_lasttime;
+        z_error = z_setpoint - _angel;
+        z_p_out = (z_kp * z_error);
+        z_errorsum = (z_errorsum + z_error) * z_timechange;
+        if(z_errorsum > 1023){
+            z_errorsum = 1023;
+        }
+        if(z_errorsum < -1023){
+            z_errorsum = -1023;
+        }
+        z_i_out = z_ki * z_errorsum;
+        z_d_error = (z_error - z_lasterror) / z_timechange;
+        z_d_out = z_kd * y_d_error;
+        z_lasterror = y_error;
+        z_output = z_p_out + z_i_out + z_d_out;
+        if(z_output > max_pid){
+            z_output = max_pid;
+        } else if(z_output < -(max_pid)){
+            z_output = -(max_pid);
+        }
+        z_lasttime = millis();
+        return z_output;
+    } else {
+        return 0;
+    }
+}
